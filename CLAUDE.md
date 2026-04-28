@@ -10,20 +10,32 @@ global/scope検索と全文取得（S3）を分離したハイブリッドRAG構
 
 | ディレクトリ | 説明 |
 | -- | -- |
-| .adr | ADR配置場所 |
-| .context | コンテキストファイル配置場所 |
-| docs/design.md | 設計ドキュメント |
-| infra/ | インフラソースコード |
-| lambda/ | Lambdaソースコード |
-{{その他ディレクトリ構成を記載}}
+| .claude/ | Claude Code設定・ルール・スキル配置場所 |
+| .context/ | コンテキストファイル配置場所 |
+| docs/ | 設計ドキュメント（design.md等） |
+| infra/ | Terraformインフラコード（API Gateway/Lambda/IAM等） |
+| lambda/ | Lambda関数ソースコード（Python） |
 
 ## 技術スタック
 
-{{ここに主要な言語やフレームワーク、バージョンなどを記載}}
+- **IaC**: Terraform
+- **Lambda Runtime**: Python 3.12
+- **API Gateway**: REST API（APIキー認証）
+- **RAG基盤**: Amazon Bedrock Knowledge Base
+- **ストレージ**: Amazon S3
+- **ログ・監視**: CloudWatch Logs, CloudWatch Metrics
+- **リージョン**: ap-northeast-1（東京）
 
 ## コマンド
 
-{{ここに開発時に使用するコマンド（サーバ起動、単体テスト実行など）を記載}}
+| コマンド | 用途 |
+| --------- | ------ |
+| `terraform -chdir=infra init` | Terraform初期化 |
+| `terraform -chdir=infra plan` | 実行計画確認 |
+| `terraform -chdir=infra apply` | インフラデプロイ |
+| `terraform -chdir=infra destroy` | インフラ削除 |
+| `cd lambda && pip install -r requirements.txt` | Lambda依存パッケージインストール |
+| `pytest lambda/tests/` | Lambda関数テスト実行 |
 
 ## 応答原則
 

@@ -1,91 +1,101 @@
-# AI駆動開発テンプレート　アプリケーション版
+# repo-bridge-mcp-infra
 
 ## 概要
 
-このレポジトリはAI駆動開発で使用するテンプレートのアプリケーション版です。
+repo-bridge-mcpの裏側インフラとして、API Gateway + Lambda + Bedrock KB + S3で構成するMCP専用RAG基盤を管理するリポジトリ。
+API Key制御で社内MCPからのみアクセス可能な検索・原本取得APIを提供する。
+global/scope検索と全文取得（S3）を分離したハイブリッドRAG構成。
 
-## 適用ガイド
+## アーキテクチャ
 
-### 1. CLAUDE.md の適用
+```mermaid
+graph LR
+    MCP[社内MCP Client] -->|API Key認証| APIGW[API Gateway]
+    APIGW -->|全エンドポイント| Lambda[Lambda Function]
 
-CLAUDE.mdをコピーし、プロジェクトルートに配置してください。
-Claudeはデフォルトで、プロジェクトルートのCLAUDE.mdを読み込みます。
+    Lambda -->|mode=semantic_search| KB[Bedrock Knowledge Base]
+    Lambda -->|mode=scoped_search| KB
+    Lambda -->|mode=fetch| S3Data[(S3 Bucket)]
 
-続けてCLAUDE.mdを修正します。
-`.claude/rules/claude.md`をコピーし、ClaudeにCLAUDE.mdの更新を指示してください。
-
-#### AGENTS.mdへのコピー
-
-Claude Code以外のAIツール（Gemini CLI、Codex CLIなど）も併用する場合は、CLAUDE.mdをAGENTS.mdにコピーしてください。
-AGENTS.mdは複数のAIエージェントが共通で参照する規約ファイルとして機能します。
-
-```bash
-cp CLAUDE.md AGENTS.md
+    KB -->|ベクトル検索| VectorDB[(Vector Store)]
+    KB -->|メタデータ参照| S3Data
 ```
 
-Claude Codeのみを使用する場合、この手順は不要です。
+## 主要機能
 
-### 2. コンテキストエンジニアリング用のプロンプトを移動
+| 機能ID | 機能名 | 説明 |
+| ------ | ------ | ---- |
+| F-001 | 意味検索（semantic_search） | Bedrock KBを使用した全体意味検索 |
+| F-002 | スコープ限定検索（scoped_search） | メタデータフィルタ + Bedrock KBによる検索 |
+| F-003 | 全文取得（fetch） | S3から原本ドキュメント全文を取得 |
+| F-004 | APIキー認証 | API Gateway usage planによる認証 |
 
-`.claude/rules/context.md`及び`.claude/skills/context-engineering/SKILL.md`を同じディレクトリに移動
+## 技術スタック
 
-#### コンテキストエンジニアリングの進め方
+- **IaC**: Terraform
+- **Lambda Runtime**: Python 3.12
+- **API Gateway**: REST API（APIキー認証）
+- **RAG基盤**: Amazon Bedrock Knowledge Base
+- **ストレージ**: Amazon S3
+- **リージョン**: ap-northeast-1（東京）
 
-1. claudeにコンテキストファイルを`.context`ディレクトリ配下に作成してもらう
-2. コンテキストファイルを人間やAIがレビューする
-3. Claudeで`/clear`後にコンテキストファイルに沿って実装してもらう
+## セットアップ
 
-### 3. MCPの活用
+### 前提条件
 
-MCPを導入します。
-Claudeの場合、`/plugin`で導入が可能です。
+- AWS CLI設定済み
+- Terraform 1.5+インストール済み
+- Python 3.12+インストール済み
+- Bedrockモデルアクセス権限が有効
+- Terraformバックエンド（S3 + DynamoDB）が構成済み
 
-個人的には以下のプラグインをお勧めします。
+### インフラデプロイ
 
-| プラグイン名 | 説明 |
+```bash
+# Terraform初期化
+terraform -chdir=infra init
+
+# 実行計画確認
+terraform -chdir=infra plan
+
+# インフラデプロイ
+terraform -chdir=infra apply
+```
+
+### Lambda関数テスト
+
+```bash
+# 依存パッケージインストール
+cd lambda && pip install -r requirements.txt
+
+# テスト実行
+pytest lambda/tests/
+```
+
+## API仕様
+
+詳細なAPI仕様は [docs/design.md](docs/design.md) を参照。
+
+### エンドポイント
+
+- **POST** `/rag/query` - 統合エンドポイント（modeパラメータで分岐）
+
+### modeパラメータ
+
+- `semantic_search`: 意味検索（global、Bedrock KB使用）
+- `scoped_search`: スコープ限定検索（メタデータ絞り込み + KB併用）
+- `fetch`: 全文取得（S3 GetObject）
+
+## ディレクトリ構成
+
+| ディレクトリ | 説明 |
 | -- | -- |
-| context7 | 最新のドキュメントを反映可能 |
-| serena | コーディング時のコンテキスト削減が可能 |
-| Github MCP Server（任意） | Githubと連携が可能になり、issueの取得やプルリクの自動化が可能 |
-| 各種LSPサーバ | LSPとやりとりすることで、丁寧なコーディングが可能になる |
+| .claude/ | Claude Code設定・ルール・スキル |
+| .context/ | コンテキストファイル配置場所 |
+| docs/ | 設計ドキュメント（design.md等） |
+| infra/ | Terraformインフラコード |
+| lambda/ | Lambda関数ソースコード |
 
-なお、入れすぎるとコンテキストを圧縮するため、必要最低限で入れることをお勧めします
+## ライセンス
 
-### 4. Gitブランチ戦略、コミットメッセージの修正
-
-`.claude/skills/git-branch-strategy.md`を同じディレクトリに移動
-
-プロジェクトに応じて、Gitのブランチ戦略、コミットメッセージの書き方などを修正してください。
-
-### 5. design.mdの作成
-
-`.claude/rules/design.md`及び`.claude/skills/design/SKILL.md`を同じディレクトリに移動
-
-Claudeに`/design`を実行させ、`docs/design.md`を作成してください。
-
-#### design.mdの進め方
-
-1. Claudeに`/design`を実行させ、`docs/design.md`を作成してもらう
-2. design.mdを人間やAIがレビューする
-3. Claudeで`/clear`後にdesign.mdに沿って実装してもらう
-
-### 6. screen.mdの作成
-
-`.claude/rules/screen.md`及び`.claude/skills/screen/SKILL.md`を同じディレクトリに移動
-
-Claudeに`/screen`を実行させ、`docs/screen.md`を作成してください。
-
-#### screen.mdの進め方
-
-1. `docs/design.md`が作成済みであること（手順5が完了していること）
-2. Claudeに`/screen`を実行させ、`docs/screen.md`を作成してもらう
-3. screen.mdを人間やAIがレビューする
-4. Claudeで`/clear`後にscreen.mdに沿って実装してもらう
-
-## 今後追加していきたいもの
-
-- 単体テスト自動作成
-- エージェント関連
-- コードレビュー
-- モックサーバ(frontend/backend)作成
-- bugfix
+非公開プロジェクト（社内利用のみ）
