@@ -52,14 +52,37 @@ graph LR
 ### インフラデプロイ
 
 ```bash
-# Terraform初期化
-terraform -chdir=infra init
+# 1. Terraform初期化（バックエンド設定）
+cd infra
+terraform init \
+  -backend-config="bucket=<tfstate-bucket>" \
+  -backend-config="key=repo-bridge-mcp-infra/terraform.tfstate" \
+  -backend-config="region=ap-northeast-1" \
+  -backend-config="dynamodb_table=<lock-table>"
 
-# 実行計画確認
-terraform -chdir=infra plan
+# 2. Lambda placeholder作成（Windowsの場合）
+mkdir tmp
+echo 'def lambda_handler(event, context): return {"statusCode": 200, "body": "Placeholder"}' > tmp/main.py
+cd tmp && powershell -Command "Compress-Archive -Path main.py -DestinationPath ../lambda_placeholder.zip -Force"
+cd .. && rm -rf tmp
 
-# インフラデプロイ
-terraform -chdir=infra apply
+# 3. 実行計画確認
+terraform plan
+
+# 4. インフラデプロイ
+terraform apply
+
+# 5. API Key設定（デプロイ後）
+API_KEY=$(terraform output -raw api_gateway_api_key_value)
+aws ssm put-parameter \
+  --name "/repo-bridge-mcp-infra/dev/api-key" \
+  --value "$API_KEY" \
+  --type SecureString \
+  --overwrite
+
+# 6. Aurora pgvector有効化
+CLUSTER_ENDPOINT=$(terraform output -raw aurora_cluster_endpoint)
+psql -h $CLUSTER_ENDPOINT -U postgres -d knowledge_base -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
 ### Lambda関数テスト

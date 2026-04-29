@@ -1,1 +1,56 @@
-kadai.md
+# Terraform
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/*.tfvars
+infra/lambda_placeholder.zip
+infra/tmp/
+
+# Lambda
+lambda/.aws-sam/
+lambda/build/
+lambda/dist/
+lambda/__pycache__/
+lambda/*.pyc
+lambda/.pytest_cache/
+lambda/.coverage
+lambda/htmlcov/
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+.env
+.env.local
+secrets.json

@@ -12,30 +12,33 @@ global/scope検索と全文取得（S3）を分離したハイブリッドRAG構
 | -- | -- |
 | .claude/ | Claude Code設定・ルール・スキル配置場所 |
 | .context/ | コンテキストファイル配置場所 |
-| docs/ | 設計ドキュメント（design.md等） |
-| infra/ | Terraformインフラコード（API Gateway/Lambda/IAM等） |
-| lambda/ | Lambda関数ソースコード（Python） |
+| docs/ | 設計ドキュメント（design.md, errors.md等） |
+| infra/ | Terraformインフラコード |
+| lambda/ | Lambda関数コード（SAM管理） |
 
 ## 技術スタック
 
-- **IaC**: Terraform
-- **Lambda Runtime**: Python 3.12
-- **API Gateway**: REST API（APIキー認証）
-- **RAG基盤**: Amazon Bedrock Knowledge Base
-- **ストレージ**: Amazon S3
-- **ログ・監視**: CloudWatch Logs, CloudWatch Metrics
-- **リージョン**: ap-northeast-1（東京）
+- **IaC**: Terraform 1.5+
+- **クラウド**: AWS ap-northeast-1
+- **API**: API Gateway REST API
+- **コンピュート**: Lambda Python 3.12
+- **ベクトルDB**: Aurora PostgreSQL Serverless v2 (pgvector)
+- **RAG基盤**: Bedrock Knowledge Base (Titan Embeddings v2)
+- **ストレージ**: S3 Standard
+- **認証**: API Gateway API Key (Usage Plan)
+- **監視**: CloudWatch Logs/Metrics
+- **スケジューラ**: EventBridge Scheduler
 
 ## コマンド
 
 | コマンド | 用途 |
-| --------- | ------ |
-| `terraform -chdir=infra init` | Terraform初期化 |
-| `terraform -chdir=infra plan` | 実行計画確認 |
-| `terraform -chdir=infra apply` | インフラデプロイ |
-| `terraform -chdir=infra destroy` | インフラ削除 |
-| `cd lambda && pip install -r requirements.txt` | Lambda依存パッケージインストール |
-| `pytest lambda/tests/` | Lambda関数テスト実行 |
+|---------|------|
+| `cd infra && terraform init` | Terraform初期化 |
+| `cd infra && terraform plan` | インフラ変更確認 |
+| `cd infra && terraform apply` | インフラ適用 |
+| `cd infra && terraform destroy` | インフラ削除 |
+| `aws s3 cp <file> s3://repo-bridge-docs-dev/projects/<project_id>/` | S3へファイルアップロード |
+| `aws bedrock-agent start-ingestion-job --knowledge-base-id <kb-id> --data-source-id <ds-id>` | Bedrock KB同期 |
 
 ## 応答原則
 
